@@ -24,7 +24,7 @@ export default function DashboardClient() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/leads", { credentials: "include" });
+      const res = await fetch("/api/leads", { credentials: "include" });
       if (res.status === 401) {
         router.replace("/login?next=/dashboard");
         return;
