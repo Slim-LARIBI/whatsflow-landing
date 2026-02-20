@@ -22,7 +22,7 @@ export default function LeadForm() {
       useCase: formData.get("useCase"),
     };
 
-    await fetch("/api/leads", {
+    await fetch("/leads-api", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
