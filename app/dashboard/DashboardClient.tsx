@@ -65,7 +65,7 @@ export default function DashboardClient() {
   }, [leads, q]);
 
   async function logout() {
-    await fetch("/auth/logout", { method: "GET", credentials: "include" });
+    await fetch("/auth/logout", { method: "POST", credentials: "include" });
     router.replace("/login");
   }
 
