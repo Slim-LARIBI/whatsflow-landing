@@ -1,81 +1,151 @@
-export const dynamic = "force-dynamic";
+"use client";
 
-async function getLeads() {
-  // appel interne côté serveur -> garde les cookies automatiquement
-  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/leads`, {
-    cache: "no-store",
-  });
+import { useEffect, useMemo, useState } from "react";
 
-  // si jamais middleware bloque, on affichera vide
-  if (!res.ok) return [];
-  return res.json();
-}
+type Lead = {
+  name: string;
+  company?: string;
+  email: string;
+  phone?: string;
+  website?: string;
+  useCase?: string;
+  createdAt?: string;
+};
 
-export default async function LeadsPage() {
-  const leads = await getLeads();
+export default function LeadsPage() {
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const total = useMemo(() => leads.length, [leads]);
+
+  async function load() {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const res = await fetch("/leads-api", {
+        method: "GET",
+        credentials: "include",
+        headers: { "Accept": "application/json" },
+        cache: "no-store",
+      });
+
+      // si pas loggé → redirect login
+      if (res.status === 401 || res.status === 403) {
+        window.location.href = `/login?next=${encodeURIComponent("/leads")}`;
+        return;
+      }
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`HTTP ${res.status}${text ? ` - ${text.slice(0, 120)}` : ""}`);
+      }
+
+      const data = await res.json();
+      setLeads(Array.isArray(data) ? data : []);
+    } catch (e: any) {
+      setError(e?.message || "Error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-[#EAF0FF] p-6">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex items-center justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">Leads</h1>
-            <p className="text-white/60 text-sm">
-              Liste des demandes envoyées depuis le formulaire.
-            </p>
-          </div>
+    <main style={{ padding: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0 }}>Leads</h1>
 
-          <a
-            href="/auth/logout"
-            className="px-4 py-2 rounded-xl bg-white text-black font-bold"
-          >
-            Logout
-          </a>
-        </div>
+        <button
+          onClick={load}
+          disabled={loading}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 10,
+            border: "1px solid #ddd",
+            background: loading ? "#f5f5f5" : "white",
+            cursor: loading ? "not-allowed" : "pointer",
+            fontWeight: 600,
+          }}
+        >
+          {loading ? "Loading…" : "Refresh"}
+        </button>
+      </div>
 
-        <div className="border border-white/10 bg-white/5 rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-white/5 text-white/70">
-                <tr>
-                  <th className="text-left p-3">Date</th>
-                  <th className="text-left p-3">Nom</th>
-                  <th className="text-left p-3">Société</th>
-                  <th className="text-left p-3">Email</th>
-                  <th className="text-left p-3">Téléphone</th>
-                  <th className="text-left p-3">Use case</th>
+      {error && (
+        <p style={{ color: "red", marginTop: 12 }}>
+          Error: {error}
+        </p>
+      )}
+
+      {!error && (
+        <p style={{ marginTop: 12 }}>
+          Total: <b>{total}</b>
+        </p>
+      )}
+
+      {!loading && !error && total === 0 && (
+        <p style={{ opacity: 0.8 }}>No leads yet.</p>
+      )}
+
+      {!loading && !error && total > 0 && (
+        <>
+          <div style={{ marginTop: 16, overflowX: "auto", border: "1px solid #eee", borderRadius: 12 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+              <thead>
+                <tr style={{ background: "#fafafa" }}>
+                  {["Name", "Company", "Email", "Phone", "Website", "Use case", "Created at"].map((h) => (
+                    <th key={h} style={{ textAlign: "left", padding: 12, borderBottom: "1px solid #eee" }}>
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {(Array.isArray(leads) ? leads : []).map((l: any, idx: number) => (
-                  <tr key={idx} className="border-t border-white/10">
-                    <td className="p-3 text-white/70">
-                      {l?.createdAt ? new Date(l.createdAt).toLocaleString() : "-"}
+                {leads.map((l, idx) => (
+                  <tr key={idx}>
+                    <td style={{ padding: 12, borderBottom: "1px solid #f2f2f2" }}>{l.name}</td>
+                    <td style={{ padding: 12, borderBottom: "1px solid #f2f2f2" }}>{l.company || "-"}</td>
+                    <td style={{ padding: 12, borderBottom: "1px solid #f2f2f2" }}>{l.email}</td>
+                    <td style={{ padding: 12, borderBottom: "1px solid #f2f2f2" }}>{l.phone || "-"}</td>
+                    <td style={{ padding: 12, borderBottom: "1px solid #f2f2f2" }}>
+                      {l.website ? (
+                        <a href={l.website} target="_blank" rel="noreferrer">
+                          {l.website}
+                        </a>
+                      ) : (
+                        "-"
+                      )}
                     </td>
-                    <td className="p-3">{l?.name || "-"}</td>
-                    <td className="p-3">{l?.company || "-"}</td>
-                    <td className="p-3">{l?.email || "-"}</td>
-                    <td className="p-3">{l?.phone || "-"}</td>
-                    <td className="p-3">{l?.useCase || "-"}</td>
+                    <td style={{ padding: 12, borderBottom: "1px solid #f2f2f2" }}>{l.useCase || "-"}</td>
+                    <td style={{ padding: 12, borderBottom: "1px solid #f2f2f2" }}>{l.createdAt || "-"}</td>
                   </tr>
                 ))}
-
-                {(!leads || leads.length === 0) && (
-                  <tr>
-                    <td className="p-6 text-white/60" colSpan={6}>
-                      Aucun lead pour le moment.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
-        </div>
 
-        <p className="text-xs text-white/50 mt-4">
-          Accès protégé par cookie admin (wf_session).
-        </p>
-      </div>
-    </div>
+          {/* debug JSON */}
+          <pre
+            style={{
+              marginTop: 16,
+              background: "#111",
+              color: "#0f0",
+              padding: 12,
+              borderRadius: 12,
+              overflow: "auto",
+              fontSize: 12,
+            }}
+          >
+            {JSON.stringify(leads, null, 2)}
+          </pre>
+        </>
+      )}
+    </main>
   );
 }
